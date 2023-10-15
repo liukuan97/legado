@@ -94,8 +94,15 @@ class BackupConfigFragment : PreferenceFragment(),
     }
     private val restoreDoc = registerForActivityResult(HandleFileContract()) {
         it.uri?.let { uri ->
-            Coroutine.async {
+            waitDialog.setText("恢复中…")
+            waitDialog.show()
+            val task = Coroutine.async {
                 Restore.restore(appCtx, uri)
+            }.onFinally {
+                waitDialog.dismiss()
+            }
+            waitDialog.setOnCancelListener {
+                task.cancel()
             }
         }
     }
@@ -175,14 +182,13 @@ class BackupConfigFragment : PreferenceFragment(),
     }
 
     override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences?, key: String?) {
-        context ?: return
         when (key) {
             PreferKey.backupPath -> upPreferenceSummary(key, getPrefString(key))
             PreferKey.webDavUrl,
             PreferKey.webDavAccount,
             PreferKey.webDavPassword,
             PreferKey.webDavDir -> listView.post {
-                upPreferenceSummary(key, getPrefString(key))
+                upPreferenceSummary(key, appCtx.getPrefString(key))
                 viewModel.upWebDavConfig()
             }
 

@@ -1,18 +1,31 @@
 package io.legado.app.utils
 
-import android.graphics.*
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
 import android.text.TextPaint
 import android.text.TextUtils
 import androidx.annotation.ColorInt
 import androidx.annotation.FloatRange
-import com.google.zxing.*
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.BinaryBitmap
+import com.google.zxing.DecodeHintType
+import com.google.zxing.EncodeHintType
+import com.google.zxing.LuminanceSource
+import com.google.zxing.MultiFormatReader
+import com.google.zxing.MultiFormatWriter
+import com.google.zxing.RGBLuminanceSource
+import com.google.zxing.Result
+import com.google.zxing.WriterException
 import com.google.zxing.common.GlobalHistogramBinarizer
 import com.google.zxing.common.HybridBinarizer
 import com.google.zxing.qrcode.QRCodeWriter
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import com.king.zxing.DecodeFormatManager
 import com.king.zxing.util.LogUtils
-import java.util.*
+import java.util.EnumMap
 import kotlin.math.max
 
 
@@ -83,7 +96,7 @@ object QRCodeUtils {
             }
 
             // 生成二维码图片的格式
-            var bitmap = Bitmap.createBitmap(heightPix, heightPix, Bitmap.Config.ARGB_8888)
+            var bitmap: Bitmap? = Bitmap.createBitmap(heightPix, heightPix, Bitmap.Config.ARGB_8888)
             bitmap!!.setPixels(pixels, 0, heightPix, 0, 0, heightPix, heightPix)
             if (logo != null) {
                 bitmap = addLogo(bitmap, logo, ratio)
@@ -128,7 +141,7 @@ object QRCodeUtils {
 
         //logo大小为二维码整体大小
         val scaleFactor = srcWidth * ratio / logoWidth
-        var bitmap = Bitmap.createBitmap(srcWidth, srcHeight, Bitmap.Config.ARGB_8888)
+        var bitmap: Bitmap? = Bitmap.createBitmap(srcWidth, srcHeight, Bitmap.Config.ARGB_8888)
         try {
             val canvas = Canvas(bitmap!!)
             canvas.drawBitmap(src, 0f, 0f, null)
@@ -295,13 +308,13 @@ object QRCodeUtils {
             try {
                 //采用HybridBinarizer解析
                 result = reader.decodeWithState(BinaryBitmap(HybridBinarizer(source)))
-            } catch (e: Exception) {
+            } catch (_: Exception) {
             }
             if (result == null) {
                 //如果没有解析成功，再采用GlobalHistogramBinarizer解析一次
                 result = reader.decodeWithState(BinaryBitmap(GlobalHistogramBinarizer(source)))
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
         }
         return result
     }
@@ -436,7 +449,7 @@ object QRCodeUtils {
         if (srcWidth <= 0 || srcHeight <= 0) {
             return null
         }
-        var bitmap = Bitmap.createBitmap(
+        var bitmap: Bitmap? = Bitmap.createBitmap(
             srcWidth,
             srcHeight + textSize + offset * 2,
             Bitmap.Config.ARGB_8888

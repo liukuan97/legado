@@ -4,8 +4,6 @@ import android.net.Uri
 import androidx.annotation.Keep
 import cn.hutool.core.codec.Base64
 import cn.hutool.core.util.HexUtil
-import com.github.junrar.Archive
-import com.github.junrar.rarfile.FileHeader
 import com.github.liuyueyi.quick.transfer.ChineseUtils
 import io.legado.app.constant.AppConst
 import io.legado.app.constant.AppConst.dateFormat
@@ -23,13 +21,11 @@ import io.legado.app.model.Debug
 import io.legado.app.model.analyzeRule.AnalyzeUrl
 import io.legado.app.model.analyzeRule.QueryTTF
 import io.legado.app.utils.*
+import io.legado.app.utils.compress.LibArchiveUtils
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import okio.use
-import org.apache.commons.compress.archivers.sevenz.SevenZArchiveEntry
-import org.apache.commons.compress.archivers.sevenz.SevenZFile
-import org.apache.commons.compress.utils.SeekableInMemoryByteChannel
 import org.jsoup.Connection
 import org.jsoup.Jsoup
 import splitties.init.appCtx
@@ -141,6 +137,43 @@ interface JsExtensions : JsEncodeUtils {
                 javaScript = js,
                 headerMap = getSource()?.getHeaderMap(true),
                 tag = getSource()?.getKey()
+            ).getStrResponse().body
+        }
+    }
+
+    /**
+     * 使用webView获取资源url
+     */
+    fun webViewGetSource(html: String?, url: String?, js: String?, sourceRegex: String): String? {
+        return runBlocking {
+            BackstageWebView(
+                url = url,
+                html = html,
+                javaScript = js,
+                headerMap = getSource()?.getHeaderMap(true),
+                tag = getSource()?.getKey(),
+                sourceRegex = sourceRegex
+            ).getStrResponse().body
+        }
+    }
+
+    /**
+     * 使用webView获取跳转url
+     */
+    fun webViewGetOverrideUrl(
+        html: String?,
+        url: String?,
+        js: String?,
+        overrideUrlRegex: String
+    ): String? {
+        return runBlocking {
+            BackstageWebView(
+                url = url,
+                html = html,
+                javaScript = js,
+                headerMap = getSource()?.getHeaderMap(true),
+                tag = getSource()?.getKey(),
+                overrideUrlRegex = overrideUrlRegex
             ).getStrResponse().body
         }
     }
@@ -502,9 +535,9 @@ interface JsExtensions : JsEncodeUtils {
     /**
      * 删除本地文件
      */
-    fun deleteFile(path: String) {
+    fun deleteFile(path: String): Boolean {
         val file = getFile(path)
-        FileUtils.delete(file, true)
+        return FileUtils.delete(file, true)
     }
 
     /**
@@ -662,18 +695,9 @@ interface JsExtensions : JsEncodeUtils {
             HexUtil.decodeHex(url)
         }
 
-        val bos = ByteArrayOutputStream()
-        Archive(ByteArrayInputStream(bytes)).use { archive ->
-            var entry: FileHeader
-            while (archive.nextFileHeader().also { entry = it } != null) {
-                if (entry.fileName.equals(path)) {
-                    archive.getInputStream(entry).use { it.copyTo(bos) }
-                    return bos.toByteArray()
-                }
-            }
+        return ByteArrayInputStream(bytes).use {
+            LibArchiveUtils.getByteArrayContent(it, path)
         }
-        log("getRarContent 未发现内容")
-        return null
     }
 
     /**
@@ -689,18 +713,9 @@ interface JsExtensions : JsEncodeUtils {
             HexUtil.decodeHex(url)
         }
 
-        val bos = ByteArrayOutputStream()
-        SevenZFile(SeekableInMemoryByteChannel(bytes)).use { sevenZFile ->
-            var entry: SevenZArchiveEntry
-            while (sevenZFile.nextEntry.also { entry = it } != null) {
-                if (entry.name.equals(path)) {
-                    sevenZFile.getInputStream(entry).use { it.copyTo(bos) }
-                    return bos.toByteArray()
-                }
-            }
+        return ByteArrayInputStream(bytes).use {
+            LibArchiveUtils.getByteArrayContent(it, path)
         }
-        log("get7zContent 未发现内容")
-        return null
     }
 
 
@@ -727,15 +742,13 @@ interface JsExtensions : JsEncodeUtils {
             var qTTF = CacheManager.getQueryTTF(key)
             if (qTTF != null) return qTTF
             val font: ByteArray? = when {
-                str.isAbsUrl() -> runBlocking {
+                str.isAbsUrl() -> {
                     var x = CacheManager.getByteArray(key)
                     if (x == null) {
                         x = AnalyzeUrl(str, source = getSource()).getByteArray()
-                        x.let {
-                            CacheManager.put(key, it)
-                        }
+                        CacheManager.put(key, x)
                     }
-                    return@runBlocking x
+                    x
                 }
 
                 str.isContentScheme() -> Uri.parse(str).readBytes(appCtx)
@@ -790,6 +803,15 @@ interface JsExtensions : JsEncodeUtils {
         return s
     }
 
+
+    fun toURL(urlStr: String): JsURL {
+        return JsURL(urlStr)
+    }
+
+    fun toURL(url: String, baseUrl: String? = null): JsURL {
+        return JsURL(url, baseUrl)
+    }
+
     /**
      * 弹窗提示
      */
@@ -811,7 +833,7 @@ interface JsExtensions : JsEncodeUtils {
         getSource()?.let {
             Debug.log(it.getKey(), msg.toString())
         } ?: Debug.log(msg.toString())
-        AppLog.putDebug("书源调试输出：$msg")
+        AppLog.putDebug("源调试输出：$msg")
         return msg
     }
 
