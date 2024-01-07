@@ -2,7 +2,11 @@ package io.legado.app.model
 
 import io.legado.app.constant.AppLog
 import io.legado.app.data.appDb
-import io.legado.app.data.entities.*
+import io.legado.app.data.entities.Book
+import io.legado.app.data.entities.BookChapter
+import io.legado.app.data.entities.BookProgress
+import io.legado.app.data.entities.BookSource
+import io.legado.app.data.entities.ReadRecord
 import io.legado.app.help.AppWebDav
 import io.legado.app.help.book.BookHelp
 import io.legado.app.help.book.ContentProcessor
@@ -88,7 +92,7 @@ object ReadBook : CoroutineScope by MainScope() {
         upWebBook(book)
         lastBookPress = null
         webBookProgress = null
-        TextFile.txtBuffer = null
+        TextFile.clear()
         synchronized(this) {
             loadingChapters.clear()
         }
@@ -129,6 +133,7 @@ object ReadBook : CoroutineScope by MainScope() {
             durChapterIndex = progress.durChapterIndex
             durChapterPos = progress.durChapterPos
             clearTextChapter()
+            callBack?.upContent()
             loadContent(resetPageOffset = true)
         }
     }
@@ -203,6 +208,7 @@ object ReadBook : CoroutineScope by MainScope() {
             nextTextChapter = null
             if (curTextChapter == null) {
                 AppLog.putDebug("moveToNextChapter-章节未加载,开始加载")
+                callBack?.upContent()
                 loadContent(durChapterIndex, upContent, resetPageOffset = false)
             } else if (upContent) {
                 AppLog.putDebug("moveToNextChapter-章节已加载,刷新视图")
@@ -231,6 +237,7 @@ object ReadBook : CoroutineScope by MainScope() {
             curTextChapter = prevTextChapter
             prevTextChapter = null
             if (curTextChapter == null) {
+                callBack?.upContent()
                 loadContent(durChapterIndex, upContent, resetPageOffset = false)
             } else if (upContent) {
                 callBack?.upContent()
